@@ -2,6 +2,7 @@ package timertxt
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -13,15 +14,32 @@ import (
 type TimerList []Timer
 
 // NewTimerList creates a new empty TimerList.
-func NewTimerList() TimerList {
-	timerlist := TimerList{}
-	return timerlist
+func NewTimerList() *TimerList {
+	return &TimerList{}
+}
+
+func (timerlist *TimerList) GetTimersInRange(start, end time.Time) *TimerList {
+	t := *NewTimerList()
+	for _, v := range *timerlist {
+		if v.FinishDate.Before(end) && 
+	}
+	return &t
+}
+
+func (timerlist *TimerList) GetActiveTimers() *TimerList {
+	t := *NewTimerList()
+	for _, v := range *timerlist {
+		if v.FinishDate.IsZero() {
+			t = append(t, v)
+		}
+	}
+	return &t
 }
 
 // String returns a complete list of timers in timer.txt format.
-func (timerlist TimerList) String() string {
+func (timerlist *TimerList) String() string {
 	var ret string
-	for _, timer := range timerlist {
+	for _, timer := range *timerlist {
 		ret += fmt.Sprintf("%s\n", timer.String())
 	}
 	return ret
@@ -47,7 +65,7 @@ func (timerlist *TimerList) GetTimer(id int) (*Timer, error) {
 			return &([]Timer(*timerlist))[i], nil
 		}
 	}
-	return nil, errors.new("timer not found")
+	return nil, errors.New("timer not found")
 }
 
 // RemoveTimerById removes any Timer with given Timer 'id' from the TimerList.
@@ -63,7 +81,7 @@ func (timerlist *TimerList) RemoveTimerById(id int) error {
 		}
 	}
 	if !found {
-		return errors.new("timer not found")
+		return errors.New("timer not found")
 	}
 	*timerlist = newList
 	return nil
@@ -124,6 +142,14 @@ func (timerlist *TimerList) LoadFromFile(file *os.File) error {
 		return err
 	}
 	return nil
+}
+
+// WriteToFile writes a TimerList to *os.File
+func (timerlist *TimerList) WriteToFile(file *os.File) error {
+	writer := bufio.NewWriter(file)
+	_, err := writer.WriteString(timerlist.String())
+	writer.Flush()
+	return err
 }
 
 // WriteToFile writes a TimerList to *os.File.

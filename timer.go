@@ -43,7 +43,7 @@ func (timer Timer) String() string {
 	var text string
 	if timer.Finished {
 		text += "x "
-		if timer.HasFinishDate() {
+		if !timer.FinishDate.IsZero() {
 			text += fmt.Sprintf("%s ", timer.FinishDate.Format(DateLayout))
 		}
 	}
@@ -76,10 +76,10 @@ func (timer Timer) String() string {
 }
 
 // NewTimer creates a new empty Timer with default values. (StartDate is set to Now())
-func NewTimer() Timer {
+func NewTimer() *Timer {
 	timer := Timer{}
 	timer.StartDate = time.Now()
-	return timer
+	return &timer
 }
 
 // ParseTimer parses the input text string into a Timer struct
@@ -104,13 +104,15 @@ func ParseTimer(text string) (*Timer, error) {
 	originalParts = originalParts[1:]
 	var notes []string
 	for _, v := range originalParts {
-		if strings.HasPrefix("@", v) {
+		if strings.HasPrefix(v, "@") {
+			v = strings.TrimPrefix(v, "@")
 			// Contexts
 			timer.Contexts = append(timer.Contexts, v)
-		} else if strings.HasPrefix("+", v) {
+		} else if strings.HasPrefix(v, "+") {
 			// Projects
+			v = strings.TrimPrefix(v, "+")
 			timer.Projects = append(timer.Projects, v)
-		} else if strings.Contains(":", v) {
+		} else if strings.Contains(v, ":") {
 			// Additional tags
 			tagPts := strings.Split(v, ":")
 			if tagPts[0] != "" && tagPts[1] != "" {
@@ -122,7 +124,7 @@ func ParseTimer(text string) (*Timer, error) {
 	}
 	timer.Notes = strings.Join(notes, " ")
 
-	return timer, nil
+	return &timer, nil
 }
 
 // Timer returns a complete timer string in timer.txt format.
@@ -133,7 +135,7 @@ func (timer *Timer) Timer() string {
 
 // Finish sets Timer.Finished to true if the timer hasn't already been finished.
 // Also sets Timer.FinishDate to time.Now()
-func (timer *Timer) Finish() bool {
+func (timer *Timer) Finish() {
 	if !timer.Finished {
 		timer.Finished = true
 		timer.FinishDate = time.Now()
@@ -147,4 +149,27 @@ func (timer *Timer) Reopen() {
 		timer.Finished = false
 		timer.FinishDate = time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC) // time.IsZero() value
 	}
+}
+
+func (timer *Timer) Duration() time.Duration {
+	end := time.Now()
+	if !timer.FinishDate.IsZero() {
+		end = timer.FinishDate
+	}
+	return end.Sub(timer.StartDate)
+}
+
+func (timer *Timer) ActiveToday() bool {
+	return timer.ActiveOnDay(time.Now())
+}
+
+func (timer *Timer) ActiveOnDay(t time.Time) bool {
+	f := "2006/01/02"
+	tStr := t.Format(f)
+	// If StartDate or FinishDate is _on_ t, true
+	if timer.StartDate.Format(f) == tStr || timer.FinishDate.Format(f) == tStr {
+		return true
+	}
+	// Otherwise, if StartDate is before t and FinishDate is after t
+	return timer.StartDate.Before(t) && timer.FinishDate.After(t)
 }

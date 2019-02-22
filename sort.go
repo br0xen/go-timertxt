@@ -8,7 +8,8 @@ import (
 
 // Flags for defining sort element and order.
 const (
-	SORT_START_DATE_ASC = iota
+	SORT_UNFINISHED_START = iota
+	SORT_START_DATE_ASC
 	SORT_START_DATE_DESC
 	SORT_FINISH_DATE_ASC
 	SORT_FINISH_DATE_DESC
@@ -18,6 +19,8 @@ const (
 // See constants SORT_* for fields and sort order.
 func (timerlist *TimerList) Sort(sortFlag int) error {
 	switch sortFlag {
+	case SORT_UNFINISHED_START:
+		timerlist.sortByUnfinishedThenStart()
 	case SORT_START_DATE_ASC, SORT_START_DATE_DESC:
 		timerlist.sortByStartDate(sortFlag)
 	case SORT_FINISH_DATE_ASC, SORT_FINISH_DATE_DESC:
@@ -78,6 +81,18 @@ func (timerlist *TimerList) sortByStartDate(order int) *TimerList {
 func (timerlist *TimerList) sortByFinishDate(order int) *TimerList {
 	timerlist.sortBy(func(t1, t2 *Timer) bool {
 		return sortByDate(order == SORT_FINISH_DATE_ASC, t1.FinishDate, t2.FinishDate)
+	})
+	return timerlist
+}
+
+func (timerlist *TimerList) sortByUnfinishedThenStart() *TimerList {
+	timerlist.sortBy(func(t1, t2 *Timer) bool {
+		if t1.FinishDate.IsZero() && !t2.FinishDate.IsZero() {
+			return true
+		} else if t2.FinishDate.IsZero() && !t1.FinishDate.IsZero() {
+			return false
+		}
+		return sortByDate(false, t1.StartDate, t2.StartDate)
 	})
 	return timerlist
 }
