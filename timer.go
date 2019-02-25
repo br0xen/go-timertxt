@@ -173,3 +173,21 @@ func (timer *Timer) ActiveOnDay(t time.Time) bool {
 	// Otherwise, if StartDate is before t and FinishDate is after t
 	return timer.StartDate.Before(t) && timer.FinishDate.After(t)
 }
+
+func (timer *Timer) HasContext(context string) bool {
+	for _, v := range timer.Contexts {
+		if v == context {
+			return true
+		}
+	}
+	return false
+}
+
+func (timer *Timer) HasProject(project string) bool {
+	for _, v := range timer.Projects {
+		if v == project {
+			return true
+		}
+	}
+	return false
+}

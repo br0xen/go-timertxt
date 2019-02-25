@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"time"
 )
 
 // TimerList represents a list of timer.txt timer entries.
@@ -19,11 +20,28 @@ func NewTimerList() *TimerList {
 }
 
 func (timerlist *TimerList) GetTimersInRange(start, end time.Time) *TimerList {
-	t := *NewTimerList()
-	for _, v := range *timerlist {
-		if v.FinishDate.Before(end) && 
+	fltr := func(t Timer) bool {
+		if t.StartDate.Before(end) && t.StartDate.After(start) {
+			return true
+		}
+		if t.FinishDate.Before(end) && t.FinishDate.After(start) {
+			return true
+		}
+		return false
 	}
-	return &t
+	return timerlist.Filter(fltr)
+}
+
+func (timerlist *TimerList) GetTimersWithContext(context string) *TimerList {
+	return timerlist.Filter(func(t Timer) bool {
+		return t.HasContext(context)
+	})
+}
+
+func (timerlist *TimerList) GetTimersWithProject(project string) *TimerList {
+	return timerlist.Filter(func(t Timer) bool {
+		return t.HasProject(project)
+	})
 }
 
 func (timerlist *TimerList) GetActiveTimers() *TimerList {
@@ -104,6 +122,22 @@ func (timerlist *TimerList) RemoveTimer(timer Timer) error {
 	}
 	*timerlist = newList
 	return nil
+}
+
+// ArchiveTimerToFile removes the timer from the active list and concatenates it to
+// the passed in filename
+// Return an err if any part of that fails
+func (timerlist *TimerList) ArchiveTimerToFile(timer Timer, filename string) error {
+	if err := timerlist.RemoveTimer(timer); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.WriteString(timer.String() + "\n")
+	return err
 }
 
 // Filter filters the current TimerList for the given predicate (a function that takes a timer as input and returns a
