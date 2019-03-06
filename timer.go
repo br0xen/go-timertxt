@@ -38,17 +38,19 @@ type Timer struct {
 //
 // For example:
 // "2019-02-15T11:43:00-0600 Working on Go Library @home @personal +timertxt customTag1:Important! due:Today"
-// "x 2019-02-15T10:00:00-0600 2019-02-15T06:00:00-0600 Creating Go Library Repo @home @personal +timertxt customTag1:Important! due:Today"
+// "x 2019-02-15T06:00:00-0600 2019-02-15T10:00:00-0600 Creating Go Library Repo @home @personal +timertxt customTag1:Important! due:Today"
 func (timer Timer) String() string {
 	var text string
 	if timer.Finished {
 		text += "x "
-		if !timer.FinishDate.IsZero() {
-			text += fmt.Sprintf("%s ", timer.FinishDate.Format(DateLayout))
-		}
 	}
 	text += fmt.Sprintf("%s ", timer.StartDate.Format(DateLayout))
-	text += timer.Notes
+	if !timer.FinishDate.IsZero() {
+		text += fmt.Sprintf("%s", timer.FinishDate.Format(DateLayout))
+	}
+	if len(timer.Notes) > 0 {
+		text += " " + timer.Notes
+	}
 	if len(timer.Contexts) > 0 {
 		sort.Strings(timer.Contexts)
 		for _, context := range timer.Contexts {
@@ -79,6 +81,7 @@ func (timer Timer) String() string {
 func NewTimer() *Timer {
 	timer := Timer{}
 	timer.StartDate = time.Now()
+	timer.AdditionalTags = make(map[string]string)
 	return &timer
 }
 
@@ -92,16 +95,19 @@ func ParseTimer(text string) (*Timer, error) {
 	// Check for finished
 	if originalParts[0] == "x" {
 		timer.Finished = true
-		// If it's finished, there _must_ be a finished date
-		if timer.FinishDate, err = time.Parse(DateLayout, originalParts[1]); err != nil {
-			return nil, errors.New("Timer marked finished, but failed to parse FinishDate: " + err.Error())
-		}
-		originalParts = originalParts[2:]
+		originalParts = originalParts[1:]
 	}
 	if timer.StartDate, err = time.Parse(DateLayout, originalParts[0]); err != nil {
 		return nil, errors.New("Unable to parse StartDate: " + err.Error())
 	}
 	originalParts = originalParts[1:]
+	if timer.Finished {
+		// If it's finished, there _must_ be a finished date
+		if timer.FinishDate, err = time.Parse(DateLayout, originalParts[0]); err != nil {
+			return nil, errors.New("Timer marked finished, but failed to parse FinishDate: " + err.Error())
+		}
+		originalParts = originalParts[1:]
+	}
 	var notes []string
 	for _, v := range originalParts {
 		if strings.HasPrefix(v, "@") {
@@ -157,6 +163,18 @@ func (timer *Timer) Duration() time.Duration {
 		end = timer.FinishDate
 	}
 	return end.Sub(timer.StartDate)
+}
+
+func (timer *Timer) StartsToday() bool {
+	currTime := time.Now()
+	dur := int64(currTime.Hour())*int64(time.Hour) + int64(currTime.Minute())*int64(time.Minute)
+	return int64(time.Since(timer.StartDate)) < dur
+}
+
+func (timer *Timer) EndsToday() bool {
+	currTime := time.Now()
+	dur := int64(currTime.Hour())*int64(time.Hour) + int64(currTime.Minute())*int64(time.Minute)
+	return int64(time.Since(timer.FinishDate)) < dur
 }
 
 func (timer *Timer) ActiveToday() bool {

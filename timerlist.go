@@ -63,16 +63,18 @@ func (timerlist *TimerList) String() string {
 	return ret
 }
 
-// AddTimer appends a Timer to the current TimerList and takes care to set the Timer.Id correctly
+// AddTimer prepends a Timer to the current TimerList and takes care to set the Timer.Id correctly
 func (timerlist *TimerList) AddTimer(timer *Timer) {
-	timer.Id = 0
+	// The new timer is going to be id 1
+	timer.Id = 1
 	for _, t := range *timerlist {
-		if t.Id > timer.Id {
-			timer.Id = t.Id
-		}
+		// Everything else gets incremented
+		t.Id++
 	}
-	timer.Id += 1
-	*timerlist = append(*timerlist, *timer)
+	// Now prepend the timer to the slice
+	*timerlist = append(*timerlist, Timer{})
+	copy((*timerlist)[1:], (*timerlist)[0:])
+	(*timerlist)[0] = *timer
 }
 
 // GetTimer returns the Timer with the given timer 'id' from the TimerList.
